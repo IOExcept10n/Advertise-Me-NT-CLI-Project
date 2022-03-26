@@ -44,7 +44,7 @@ namespace AdvertisementApp
             if (oldHash != PasswordHash)
                 throw new AccessViolationException("Wrong password!");
             SQLiteCommand upd = new SQLiteCommand($"UPDATE users" +
-                $"SET login = {hash} WHERE password_hash = \"{oldHash}\" AND login LIKE \"{Username}%\"", Program.connection);
+                $"SET password_hash = {hash} WHERE password_hash = \"{oldHash}\" AND login LIKE \"{Username}%\"", Program.connection);
             int v = await upd.ExecuteNonQueryAsync();
             if (v == 0)
                 throw new ArgumentException($"There's no elements in table with username {Username} or old password was wrong!", "username");
@@ -62,7 +62,7 @@ namespace AdvertisementApp
             return user;
         }
 
-        public async Task SetAdministratorAsync(string username, string value, string currentSessionPass, CLIUser initiator)
+        public static async Task SetAdministratorAsync(string username, bool value, string currentSessionPass, CLIUser initiator)
         {
             if (ComputeHashForPassword(currentSessionPass) != initiator.PasswordHash)
                 throw new AccessViolationException($"Wrong password from administrator login!");

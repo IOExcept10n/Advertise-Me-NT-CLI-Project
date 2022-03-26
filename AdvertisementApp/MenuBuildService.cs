@@ -320,7 +320,7 @@ namespace AdvertisementApp
             }
         }
 
-        public static Task UserManagement()
+        public static async Task UserManagement()
         {
             Console.WriteLine("Ниже представлен список всех пользователей: ");
             SQLiteCommand cmd = new SQLiteCommand(
@@ -332,6 +332,21 @@ namespace AdvertisementApp
             long id;
             if (long.TryParse(Console.ReadLine(), out id))
             {
+                string name = "";
+                cmd = new SQLiteCommand($"SELECT * FROM users WHERE id = {id}", Program.connection);
+                reader = cmd.ExecuteReader();
+                if (reader.Read())
+                {
+                    name = (string)reader["login"];
+                }
+                else
+                {
+                    Console.ForegroundColor = ConsoleColor.Red;
+                    Console.WriteLine("Введён некорректный ID. Нажмите любую клавишу для выхода в главное меню...");
+                    Console.ReadKey();
+                    Program.ResetMenu();
+                    return;
+                }
                 Console.WriteLine("Выберите действие с пользователем: ");
                 Console.WriteLine("1 - Задать режим администратора");
                 Console.WriteLine("2 - Сбросить пароль пользователя");
@@ -343,15 +358,80 @@ namespace AdvertisementApp
                         {
                             Console.Write("Задайте режим администратора (true/false): ");
                             bool admin = bool.TryParse(Console.ReadLine(), out var a) && a;
-
+                            Console.Write("Подтвердите, что вы Администратор (заново введите пароль): ");
+                            string pass = Console.ReadLine();
+                            string passHash = CLIUser.ComputeHashForPassword(pass);
+                            if (passHash == Program.currentUser?.PasswordHash && Program.currentUser.IsAdministrator)
+                            {
+                                await CLIUser.SetAdministratorAsync(name, a, pass, Program.currentUser);
+                            }
+                            else
+                            {
+                                Console.ForegroundColor = ConsoleColor.Red;
+                                Console.WriteLine("Вы не подтвердили пароль от учётной записи Администратора. Нажмите любую клавишу для выхода в главное меню...");
+                                Console.ReadKey();
+                                Program.ResetMenu();
+                            }
                             break;
                         }
                     case "2":
                         {
-
+                            if (name == Program.currentUser?.Username)
+                            {
+                                Console.ForegroundColor = ConsoleColor.Red;
+                                Console.WriteLine("Вы не можете сбросить пароль от собственной учётной записи. Нажмите любую клавишу для выхода в главное меню...");
+                                Console.ReadKey();
+                                Program.ResetMenu();
+                            }
+                            Console.Write("Подтвердите, что вы Администратор (заново введите пароль): ");
+                            string pass = Console.ReadLine();
+                            string passHash = CLIUser.ComputeHashForPassword(pass);
+                            if (passHash == Program.currentUser?.PasswordHash && Program.currentUser.IsAdministrator)
+                            {
+                                string newPassHash = CLIUser.ComputeHashForPassword("12345");
+                                SQLiteCommand upd = new SQLiteCommand($"UPDATE users" +
+                                    $"SET password_hash = {newPassHash} WHERE login LIKE \"{name}%\"", Program.connection);
+                                upd.ExecuteNonQuery();
+                                Console.ForegroundColor = ConsoleColor.Green;
+                                Console.WriteLine("Пароль успешно изменён на 12345! Нажмите любую клавишу для возращения в главное меню: ");
+                                Console.ReadKey();
+                                Program.ResetMenu();
+                            }
+                            else
+                            {
+                                Console.ForegroundColor = ConsoleColor.Red;
+                                Console.WriteLine("Вы не подтвердили пароль от учётной записи Администратора. Нажмите любую клавишу для выхода в главное меню...");
+                                Console.ReadKey();
+                                Program.ResetMenu();
+                            }
+                            break;
+                        }
+                    case "3":
+                        {
+                            Console.Write("Подтвердите, что вы Администратор (заново введите пароль): ");
+                            string pass = Console.ReadLine();
+                            string passHash = CLIUser.ComputeHashForPassword(pass);
+                            if (passHash == Program.currentUser?.PasswordHash && Program.currentUser.IsAdministrator)
+                            {
+                                SQLiteCommand upd = new SQLiteCommand($"DELETE FROM users WHERE login = {name}", Program.connection);
+                                upd.ExecuteNonQuery();
+                                Console.ForegroundColor = ConsoleColor.Green;
+                                Console.WriteLine("Пользователь успешно удалён из системы! Нажмите любую клавишу для возращения в главное меню: ");
+                                Console.ReadKey();
+                                Program.ResetMenu();
+                            }
+                            else
+                            {
+                                Console.ForegroundColor = ConsoleColor.Red;
+                                Console.WriteLine("Вы не подтвердили пароль от учётной записи Администратора. Нажмите любую клавишу для выхода в главное меню...");
+                                Console.ReadKey();
+                                Program.ResetMenu();
+                            }
+                            break;
                         }
                 }
             }
+            return;
         }
     }
 }
