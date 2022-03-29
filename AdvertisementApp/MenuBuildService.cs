@@ -9,20 +9,25 @@ namespace AdvertisementApp
 {
     public static class MenuBuildService
     {
+        //Набор регулярных выражений для проверки различных вводимых данных. URL так и не стал проверять, но может потом буду.
+
         static readonly Regex emailRegex = new Regex(@"^(?("")(""[^""]+?""@)|(([0-9a-z]((\.(?!\.))|[-!#\$%&'\*\+/=\?\^`\{\}\|~\w])*)(?<=[0-9a-z])@))(?(\[)(\[(\d{1,3}\.){3}\d{1,3}\])|(([0-9a-z][-\w]*[0-9a-z]*\.)+[a-z0-9]{2,17}))$", RegexOptions.Compiled);
 
         static readonly Regex urlRegex = new Regex(@"^http(s)?://([\w-]+.)+[\w-]+(/[\w- ./?%&=])?$", RegexOptions.Compiled, TimeSpan.FromSeconds(2));
         
         static readonly Regex phoneRegex = new Regex(@"^(\s*)?(\+)?([- _():=+]?\d[- _():=+]?){10,14}(\s*)?$", RegexOptions.Compiled, TimeSpan.FromSeconds(2));
-
+        /// <summary>
+        /// Настройка всех меню в соответствии с текстом и действий по нажатию.
+        /// </summary>
+        /// <returns></returns>
         public static ConsoleMenu BuildMenuSystem()
         {
             ConsoleMenu accountSettings = new ConsoleMenu("Выберите опцию: ")
             {
                 Elements = new List<MenuElement>()
                 {
-                    new MenuElement("Сменить никнейм", onclick:() => Task.Run(() => ChangeName())),
-                    new MenuElement("Сменить пароль", onclick:() => Task.Run(() => ChangePassword())),
+                    new MenuElement("Сменить никнейм", onclick:ChangeName),
+                    new MenuElement("Сменить пароль", onclick:ChangePassword),
                     new MenuElement("Вернуться в главное меню", onclick:() => Task.Run(() => Program.ResetMenu()))
                 }
             };
@@ -30,8 +35,8 @@ namespace AdvertisementApp
             {
                 Elements = new List<MenuElement>()
                 {
-                    new MenuElement("Управление пользователями", onclick:() => Task.Run(() => ChangeName())),
-                    new MenuElement("Выполнить собственный SQL-запрос", onclick:() => Task.Run(() => ChangePassword())),
+                    new MenuElement("Управление пользователями", onclick:ChangeName),
+                    new MenuElement("Выполнить собственный SQL-запрос", onclick:ChangePassword),
                     new MenuElement("Вернуться в главное меню", onclick:() => Task.Run(() => Program.ResetMenu()))
                 }
             };
@@ -39,21 +44,21 @@ namespace AdvertisementApp
             {
                 Elements = new List<MenuElement>()
                 {
-                    new MenuElement("Открыть список рекламных объявлений", onclick:() => Task.Run(() => ShowAdvertisementsAsync())),
-                    new MenuElement("Открыть список рекламодателей", onclick:() => Task.Run(() => ShowAdvertisersAsync())),
-                    new MenuElement("Найти объявление по названию", ConsoleColor.DarkCyan, onclick:() => Task.Run(() => GetAdvertisement())),
-                    new MenuElement("Найти профиль рекламодателя по названию", ConsoleColor.DarkCyan, onclick:() => Task.Run(() => GetAdvertiser())),
-                    new MenuElement("Добавить рекламное объявление", ConsoleColor.Green, onclick:() => Task.Run(() => AddAdvertisementAsync())),
-                    new MenuElement("Зарегистрировать рекламодателя", ConsoleColor.DarkGreen, onclick:() => Task.Run(() => RegisterAdvertiserAsync())),
+                    new MenuElement("Открыть список рекламных объявлений", onclick:ShowAdvertisementsAsync),
+                    new MenuElement("Открыть список рекламодателей", onclick:ShowAdvertisersAsync),
+                    new MenuElement("Найти объявление по названию", ConsoleColor.DarkCyan, onclick:GetAdvertisement),
+                    new MenuElement("Найти профиль рекламодателя по названию", ConsoleColor.DarkCyan, onclick:GetAdvertiser),
+                    new MenuElement("Добавить рекламное объявление", ConsoleColor.Green, onclick:AddAdvertisementAsync),
+                    new MenuElement("Зарегистрировать рекламодателя", ConsoleColor.DarkGreen, onclick:RegisterAdvertiserAsync),
                     new MenuElement("Настройки учётной записи", ConsoleColor.Gray, accountSettings),
-                    new MenuElement("Выйти из учётной записи", ConsoleColor.Red, onclick:() => Task.Run(() => Logout()))
+                    new MenuElement("Выйти из учётной записи", ConsoleColor.Red, onclick:Logout)
                 }
             };
             if (Program.currentUser.IsAdministrator)
-                menu.Elements.Add(new MenuElement("Инструменты администратора"));
+                menu.Elements.Add(new MenuElement("Инструменты администратора", onclick: UserManagement));
             return menu;
         }
-
+        //Ниже идут действия по нажатию.
         private static Task ShowAdvertisementsAsync()
         {
             string selectionQueryPart = "SELECT * FROM advertisements ";
@@ -243,16 +248,23 @@ namespace AdvertisementApp
 
         public static Task GetAdvertiser()
         {
-            Console.Write("Введите имя рекламодателя для поиска: ");
-            string name = Console.ReadLine();
-            SQLiteCommand cmd = new SQLiteCommand(
-                $"SELECT * FROM advertisers WHERE link = \"{name}\"",
-                Program.connection);
-            var reader = cmd.ExecuteReader();
+            Console.Write("Введите id или имя рекламодателя (можно найти на странице рекламодателя в приложении):");
+            string input = Console.ReadLine();
+            string query = "SELECT * FROM advertisers ";
+            if (long.TryParse(input, out long advertiserID))
+            {
+                query += $"WHERE id = {advertiserID} OR name = \"{input}\"";
+            }
+            else
+            {
+                query += $"WHERE name = \"{input}\"";
+            }
+            SQLiteCommand command = new SQLiteCommand(query, Program.connection);
+            var reader = command.ExecuteReader();
             if (reader.Read())
             {
                 long id = (long)reader["id"];
-                cmd = new SQLiteCommand(
+                var cmd = new SQLiteCommand(
                 $"SELECT * FROM advertisements WHERE advertiser_id = {id}",
                 Program.connection);
                 reader = cmd.ExecuteReader();
@@ -328,7 +340,8 @@ namespace AdvertisementApp
                 Program.connection);
             var reader = cmd.ExecuteReader();
             Program.VizualizeTable(reader, 1000000);
-            Console.Write("Введите id пользователя для управления: ");
+            Console.WriteLine();
+            Console.Write("Введите id пользователя для управления (или Enter для выхода): ");
             long id;
             if (long.TryParse(Console.ReadLine(), out id))
             {
@@ -351,6 +364,7 @@ namespace AdvertisementApp
                 Console.WriteLine("1 - Задать режим администратора");
                 Console.WriteLine("2 - Сбросить пароль пользователя");
                 Console.WriteLine("3 - Удалить учётную запись");
+                Console.WriteLine("<Люой другой текст> - Вернуться в главное меню");
                 string input = Console.ReadLine();
                 switch (input)
                 {
@@ -363,7 +377,7 @@ namespace AdvertisementApp
                             string passHash = CLIUser.ComputeHashForPassword(pass);
                             if (passHash == Program.currentUser?.PasswordHash && Program.currentUser.IsAdministrator)
                             {
-                                await CLIUser.SetAdministratorAsync(name, a, pass, Program.currentUser);
+                                await CLIUser.SetAdministrator(name, admin, pass, Program.currentUser);
                             }
                             else
                             {
@@ -382,6 +396,7 @@ namespace AdvertisementApp
                                 Console.WriteLine("Вы не можете сбросить пароль от собственной учётной записи. Нажмите любую клавишу для выхода в главное меню...");
                                 Console.ReadKey();
                                 Program.ResetMenu();
+                                return;
                             }
                             Console.Write("Подтвердите, что вы Администратор (заново введите пароль): ");
                             string pass = Console.ReadLine();
@@ -408,17 +423,35 @@ namespace AdvertisementApp
                         }
                     case "3":
                         {
+                            if (name == Program.currentUser?.Username)
+                            {
+                                Console.ForegroundColor = ConsoleColor.Red;
+                                Console.WriteLine("Вы не можете удалить собственную учётную запись. Нажмите любую клавишу для выхода в главное меню...");
+                                Console.ReadKey();
+                                Program.ResetMenu();
+                                return;
+                            }
                             Console.Write("Подтвердите, что вы Администратор (заново введите пароль): ");
                             string pass = Console.ReadLine();
                             string passHash = CLIUser.ComputeHashForPassword(pass);
                             if (passHash == Program.currentUser?.PasswordHash && Program.currentUser.IsAdministrator)
                             {
-                                SQLiteCommand upd = new SQLiteCommand($"DELETE FROM users WHERE login = {name}", Program.connection);
-                                upd.ExecuteNonQuery();
-                                Console.ForegroundColor = ConsoleColor.Green;
-                                Console.WriteLine("Пользователь успешно удалён из системы! Нажмите любую клавишу для возращения в главное меню: ");
-                                Console.ReadKey();
-                                Program.ResetMenu();
+                                SQLiteCommand upd = new SQLiteCommand($"DELETE FROM users WHERE id = {id}", Program.connection);
+                                int v = upd.ExecuteNonQuery();
+                                if (v != 0)
+                                {
+                                    Console.ForegroundColor = ConsoleColor.Green;
+                                    Console.WriteLine("Пользователь успешно удалён из системы! Нажмите любую клавишу для возращения в главное меню: ");
+                                    Console.ReadKey();
+                                    Program.ResetMenu();
+                                }
+                                else
+                                {
+                                    Console.ForegroundColor = ConsoleColor.Red;
+                                    Console.WriteLine("На нашлось записи с указанными данными. Нажмите любую клавишу для выхода в главное меню...");
+                                    Console.ReadKey();
+                                    Program.ResetMenu();
+                                }
                             }
                             else
                             {

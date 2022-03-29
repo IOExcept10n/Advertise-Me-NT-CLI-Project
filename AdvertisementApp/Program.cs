@@ -10,24 +10,33 @@ namespace AdvertisementApp
 {
     class Program
     {
+        /// <summary>
+        /// Сохраним SQL-соединение и откроем доступ из других файлов.
+        /// </summary>
         internal static SQLiteConnection connection;
-
+        /// <summary>
+        /// Это поле отвечает за текущее выбранное меню.
+        /// </summary>
         static ConsoleMenu currentMenu;
-
+        /// <summary>
+        /// Это поле сохраняет текущего пользователя в данной сессии.
+        /// </summary>
         internal static CLIUser currentUser;
-
+        /// <summary>
+        /// Главное меню будет храниться всегда для быстрого возврата.
+        /// </summary>
         public static ConsoleMenu MainMenu;
 
         static void Main(string[] args)
         {
-            if (!File.Exists("adv.db"))
+            if (!File.Exists("adv.db"))//Создаём БД, если она ещё не существует.
             {
                 File.Create("adv.db").Close();
             }
-            connection = new SQLiteConnection("Data SOURCE=adv.db");
+            connection = new SQLiteConnection("Data SOURCE=adv.db");//Создаём соединение.
             try
             {
-                connection.Open();
+                connection.Open();//Открываем соединение.
                 //SQLiteCommand command = new SQLiteCommand("CREATE TABLE IF NOT EXISTS advertisements (id INTEGER PRIMARY KEY AUTOINCREMENT) ", connection);
                 //SQLiteCommand command1 = new SQLiteCommand("CREATE TABLE IF NOT EXISTS advertisers (id INTEGER PRIMARY KEY AUTOINCREMENT)", connection);
                 //SQLiteCommand command2 = new SQLiteCommand("INSERT INTO advertisers VALUES (1)", connection);
@@ -39,8 +48,8 @@ namespace AdvertisementApp
                 //reader = command3.ExecuteReader();
                 //reader.Read();
                 //Console.WriteLine(reader["id"]);
-                InitializeDatabase();
-                MainTask().GetAwaiter().GetResult();
+                InitializeDatabase();//Первичная настройка БД
+                MainTask().GetAwaiter().GetResult();//Запускаю основную задачу (наверное я зря сделал её асинхронной, в данном случае от этого вообще 0 смысла, но всё же).
             }
             catch
             {
@@ -62,7 +71,7 @@ namespace AdvertisementApp
         {
             bool l;
             Console.WriteLine("Добро пожаловать в AdvertiseMe NT CLI!");
-            do
+            do//Процесс входа в аккаунт.
             {
                 Console.Write("Пожалуйста, введите логин: ");
                 string login = Console.ReadLine();
@@ -72,14 +81,14 @@ namespace AdvertisementApp
             } while (l);
             MainMenu = MenuBuildService.BuildMenuSystem();
             currentMenu = MainMenu;
-            do
+            do//Основной цикл в сессии. Осуществляет управление меню и рабоотает с интерфейсом.
             {
                 currentMenu.RedrawMenu();
                 Console.WriteLine("Нажимайте клавиши со стрелками для навигации или введите номер опции...");
                 if (!Console.KeyAvailable) SpinWait.SpinUntil(() => Console.KeyAvailable);
                 Thread.Sleep(150);
                 var input = Console.ReadKey();
-                if (input.KeyChar >= '0' && input.KeyChar <= '9')
+                if (input.KeyChar >= '0' && input.KeyChar <= '9')//Основные кнопки для управления: цифры, вверх-вниз, Enter и Escape.
                 {
                     int pos = Convert.ToInt32(Convert.ToString(input.KeyChar));
                     if (pos < currentMenu.Elements.Count) currentMenu.PointerPosition = pos;
@@ -124,7 +133,12 @@ namespace AdvertisementApp
                 "CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, login VARCHAR(16) UNIQUE, password_hash TEXT, admin BOOLEAN);", connection);
             init.ExecuteNonQuery();
         }
-
+        /// <summary>
+        /// Функция для осуществления входа в учётную запись.
+        /// </summary>
+        /// <param name="name">Логин</param>
+        /// <param name="password">Пароль</param>
+        /// <returns></returns>
         internal static async Task<bool> LoginUser(string name, string password)
         {
             SQLiteCommand check = new SQLiteCommand($"SELECT * FROM users WHERE login LIKE \"{name}%\";", connection);
@@ -164,37 +178,46 @@ namespace AdvertisementApp
             Console.ResetColor();
             currentMenu = MainMenu;
         }
-
-        public static void VizualizeTable(SQLiteDataReader reader, int limit = 100)
+        /// <summary>
+        /// Осуществляет отрисовку таблицы на экране.
+        /// </summary>
+        /// <param name="reader">Созданный SQL-запросом <see cref="SQLiteDataReader"/>.</param>
+        /// <param name="limit">Лимит на число отрисовываемых записей.</param>
+        /// <param name="width">Ширина одного столбца.</param>
+        public static void VizualizeTable(SQLiteDataReader reader, int limit = 100, int width = 20)
         {
             Console.WriteLine("Визуализация таблицы по запросу... (Показано не более 50 результатов)");
             int columns = reader.FieldCount;
             int r = 0;
+            //Этап 1. Рисуем верхнюю границу.
             Console.Write("╔");
-            for (int c = 0; c < Math.Min(columns, 15); c++)
+            for (int c = 0; c < Math.Min(columns, width); c++)
             {
-                Console.Write(string.Join("", Enumerable.Repeat("═", 15)));
-                if (c != Math.Min(columns, 15) - 1) Console.Write("╦");
+                Console.Write(string.Join("", Enumerable.Repeat("═", width)));
+                if (c != Math.Min(columns, width) - 1) Console.Write("╦");
             }
             Console.WriteLine("╗");
             string minimize(string seq)
             {
-                if (seq.Length > 15) return seq.Substring(0, 14) + "…";
-                return seq + string.Join("", Enumerable.Repeat(" ", 15 - seq.Length));
+                if (seq.Length > width) return seq[..(width - 1)] + "…";
+                return seq + string.Join("", Enumerable.Repeat(" ", width - seq.Length));
             }
+            //Этап 2. Выводим названия заголовков.
             Console.Write("║");
-            for (int c = 0; c < Math.Min(columns, 15); c++)
+            for (int c = 0; c < Math.Min(columns, width); c++)
             {
                 Console.Write(minimize(reader.GetOriginalName(c)) + "║");
             }
             Console.WriteLine();
+            //Этап 3. Рисуем разделитель между заголовком и записями.
             Console.Write("╠");
-            for (int c = 0; c < Math.Min(columns, 15); c++)
+            for (int c = 0; c < Math.Min(columns, width); c++)
             {
-                Console.Write(string.Join("", Enumerable.Repeat("═", 15)));
-                if (c != Math.Min(columns, 15) - 1) Console.Write("╫");
+                Console.Write(string.Join("", Enumerable.Repeat("═", width)));
+                if (c != Math.Min(columns, width) - 1) Console.Write("╫");
             }
             Console.WriteLine("╢");
+            //Этап 4. Рисуем записи.
             while (reader.Read() && r++ < limit)
             {
                 Console.Write("║");
@@ -208,19 +231,19 @@ namespace AdvertisementApp
                     }
                     else val = reader[c].ToString();
                     Console.Write(minimize(val));
-                    if (c != Math.Min(columns, 15) - 1) Console.Write("║");
+                    if (c != Math.Min(columns, width) - 1) Console.Write("║");
                 }
                 Console.WriteLine("║");
             }
             Console.Write("╚");
-            for (int c = 0; c < Math.Min(columns, 15); c++)
+            for (int c = 0; c < Math.Min(columns, width); c++)
             {
-                Console.Write(string.Join("", Enumerable.Repeat("═", 15)));
-                if (c != Math.Min(columns, 15) - 1) Console.Write("╩");
+                Console.Write(string.Join("", Enumerable.Repeat("═", width)));
+                if (c != Math.Min(columns, width) - 1) Console.Write("╩");
             }
             Console.WriteLine("╝");
             Console.Write("Нажмите ESC для выхода из режима просмотра таблицы: ");
-            while (Console.ReadKey(false).Key != ConsoleKey.Escape)
+            while (Console.ReadKey(true).Key != ConsoleKey.Escape)
             {
             }
         }

@@ -7,17 +7,26 @@ namespace AdvertisementApp
 {
     public class ConsoleMenu
     {
+        /// <summary>
+        /// Список элементов меню.
+        /// </summary>
         public List<MenuElement> Elements { get; set; }
-
+        /// <summary>
+        /// Описание меню (текст, который будет выведен пользователю).
+        /// </summary>
         public string Description { get; set; }
-
+        /// <summary>
+        /// Положение курсора.
+        /// </summary>
         public int PointerPosition { get; set; }
 
         public ConsoleMenu(string desc)
         {
             Description = desc;
         }
-
+        /// <summary>
+        /// Обновить меню и отрисовать его заново.
+        /// </summary>
         public void RedrawMenu()
         {
             Console.Clear();
@@ -40,22 +49,35 @@ namespace AdvertisementApp
                 e.NextMenu?.Initialize();
             }
         }
-
+        /// <summary>
+        /// Осуществить нажаите на элемент меню.
+        /// </summary>
+        /// <returns></returns>
         public async Task InitiateClickAsync()
         {
             await Elements[PointerPosition].ClickAsync();
         }
     }
-
+    /// <summary>
+    /// Класс, предстваляющий собой элемент меню.
+    /// </summary>
     public class MenuElement
     {
-
+        /// <summary>
+        /// Цвет элемента.
+        /// </summary>
         public ConsoleColor Color { get; set; }
-
+        /// <summary>
+        /// Меню-владелец.
+        /// </summary>
         public ConsoleMenu OwnerMenu { get; set; }
-
+        /// <summary>
+        /// Текст на элементе.
+        /// </summary>
         public string Name { get; set; }
-
+        /// <summary>
+        /// Меню, на которое будет осщуествлён переход в случае нажатия.
+        /// </summary>
         public ConsoleMenu NextMenu { get; set; }
 
         public MenuElement(string name, ConsoleColor color = ConsoleColor.White, ConsoleMenu nextMenu = null, Func<Task> onclick = null)
@@ -65,9 +87,14 @@ namespace AdvertisementApp
             NextMenu = nextMenu;
             OnClickCustomAction = onclick;
         }
-
+        /// <summary>
+        /// Функция, которая будет выполнена в результате нажатия.
+        /// </summary>
         public Func<Task> OnClickCustomAction { get; set; }
-
+        /// <summary>
+        /// Действие по нажатию.
+        /// </summary>
+        /// <returns></returns>
         public async Task ClickAsync()
         {
             if (NextMenu != null)
